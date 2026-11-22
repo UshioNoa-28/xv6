@@ -1,0 +1,25 @@
+Lab syscall — Using GDB
+Measurements from this repository's riscv branch (526def1).
+
+1. usertrap() called syscall(). GDB's backtrace shows the call at
+   kernel/trap.c:68.
+
+2. p->trapframe->a7 was 0xf (15), which is SYS_open in
+   kernel/syscall.h. This was init's open("console", O_RDWR) in
+   user/init.c:19. The user-space syscall stub puts the syscall
+   number in a7 before executing ecall.
+
+3. The previous mode was User mode. At entry to usertrap, sstatus
+   was 0x200000020; its SPP bit (bit 8) was 0.
+
+4. After replacing the assignment to num with a load from address
+   zero in a temporary copy of the source, the faulting instruction
+   was 0x8000285e: lw a3,0(zero). a3 is the destination register
+   the compiler chose for num at that instruction.
+
+5. The instruction tried to read virtual address 0, which is not
+   mapped in the kernel page table. scause=0xd means load page fault,
+   stval=0x0 is the faulting address, and sepc=0x8000285e points to
+   the faulting instruction.
+
+6. The process was init, with PID 1.
