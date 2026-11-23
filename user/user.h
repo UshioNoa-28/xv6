@@ -21,6 +21,7 @@ int mkdir(const char *);
 int chdir(const char *);
 int dup(int);
 int getpid(void);
+int ugetpid(void); // read-only user mapping, not a system call
 char *sys_sbrk(int, int);
 int pause(int);
 int uptime(void);
