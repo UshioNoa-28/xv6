@@ -5,6 +5,7 @@
 #include "memlayout.h"
 #include "spinlock.h"
 #include "proc.h"
+#include "syscall.h"
 #include "vm.h"
 
 uint64
@@ -109,4 +110,29 @@ sys_uptime(void)
   xticks = ticks;
   release(&tickslock);
   return xticks;
+}
+
+uint64
+sys_interpose(void)
+{
+  struct proc *p = myproc();
+  uint path_mask = (1U << SYS_open) | (1U << SYS_exec);
+  int mask;
+  char path[MAXPATH];
+
+  argint(0, &mask);
+  if (argstr(1, path, sizeof(path)) <= 0)
+    return -1;
+
+  if (mask & path_mask) {
+    if (path[0] == '-' && path[1] == '\0')
+      path[0] = '\0';
+    // Keep or tighten the exception, but never grant a new one.
+    if ((p->syscall_mask & path_mask) && path[0] &&
+        strncmp(path, p->syscall_path, sizeof(path)) != 0)
+      return -1;
+    safestrcpy(p->syscall_path, path, sizeof(p->syscall_path));
+  }
+  p->syscall_mask |= (uint)mask;
+  return 0;
 }

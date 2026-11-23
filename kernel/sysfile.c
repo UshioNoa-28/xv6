@@ -15,6 +15,7 @@
 #include "sleeplock.h"
 #include "file.h"
 #include "fcntl.h"
+#include "syscall.h"
 
 // Fetch the nth word-sized system call argument as a file descriptor
 // and return both the descriptor and the corresponding struct file.
@@ -325,6 +326,16 @@ fail:
   return 0;
 }
 
+// Check the same kernel copy of the path that the handler will use.
+static int
+path_allowed(int num, const char *path)
+{
+  struct proc *p = myproc();
+
+  return !(p->syscall_mask & (1U << num)) ||
+         (p->syscall_path[0] && strncmp(path, p->syscall_path, MAXPATH) == 0);
+}
+
 uint64
 sys_open(void)
 {
@@ -335,7 +346,7 @@ sys_open(void)
   int n;
 
   argint(1, &omode);
-  if ((n = argstr(0, path, MAXPATH)) < 0)
+  if ((n = argstr(0, path, MAXPATH)) < 0 || !path_allowed(SYS_open, path))
     return -1;
 
   begin_op();
@@ -463,7 +474,7 @@ sys_exec(void)
   uint64 uargv, uarg;
 
   argaddr(1, &uargv);
-  if (argstr(0, path, MAXPATH) < 0) {
+  if (argstr(0, path, MAXPATH) < 0 || !path_allowed(SYS_exec, path)) {
     return -1;
   }
   memset(argv, 0, sizeof(argv));
